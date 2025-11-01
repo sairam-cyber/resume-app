@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rezume_app/app/localization/app_localizations.dart';
+import 'package:rezume_app/widgets/language_selector_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   final String role; // 'User' or 'Organization'
@@ -36,10 +37,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: _currentBackgroundColor,
-      // --- AppBar has been removed as per your original file ---
-
-      // --- We need to wrap the body in a SafeArea ---
-      // --- to avoid the status bar at the top ---
+      appBar: AppBar(
+        backgroundColor: _currentBackgroundColor,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        actions: const [
+          LanguageSelectorWidget(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(

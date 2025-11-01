@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 // Import the new verification screen
 import 'package:rezume_app/screens/auth/email_verification_screen.dart';
 import 'package:rezume_app/services/auth_service.dart'; // <-- IMPORT
+import 'package:rezume_app/app/localization/app_localizations.dart';
+import 'package:rezume_app/widgets/language_selector_widget.dart';
 
 class OrgRegistrationScreen extends StatefulWidget {
   const OrgRegistrationScreen({super.key});
@@ -116,16 +118,19 @@ class _OrgRegistrationScreenState extends State<OrgRegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // --- THIS IS THE FIX ---
-    // The stray comments and code snippets have been removed from here.
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: const [
+          LanguageSelectorWidget(),
+          SizedBox(width: 8),
+        ],
       ),
       backgroundColor: _backgroundColor, // Use light indigo background
       body: Stack(
@@ -148,9 +153,9 @@ class _OrgRegistrationScreenState extends State<OrgRegistrationScreen> {
                     children: [
                       Icon(Icons.business_rounded,
                           color: Colors.white.withOpacity(0.9), size: 50),
-                      SizedBox(height: 10),
-                      Text('Organization Details',
-                          style: TextStyle(
+                      const SizedBox(height: 10),
+                      Text(loc?.translate('register_title') ?? 'Organization Details',
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 30,
                               fontWeight: FontWeight.bold)),

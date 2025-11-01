@@ -2,6 +2,7 @@ import 'package:flutter/material.dart'; // <-- THIS IS THE FIX
 import 'package:provider/provider.dart';
 import 'package:rezume_app/providers/language_provider.dart';
 import 'package:rezume_app/screens/auth/login_screen.dart';
+import 'package:rezume_app/app/localization/app_localizations.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
   const LanguageSelectionScreen({super.key});
@@ -49,11 +50,16 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     );
   }
 
-  void _selectLanguage(BuildContext context, String languageCode) {
+  void _selectLanguage(BuildContext context, String languageCode) async {
     // Update the locale using the provider
-    Provider.of<LanguageProvider>(context, listen: false)
+    await Provider.of<LanguageProvider>(context, listen: false)
         .changeLanguage(Locale(languageCode));
 
+    // Wait a bit for the locale to be saved and loaded
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted) return;
+    
     // --- FIX: Use pushReplacement to prevent going back to this screen ---
     Navigator.pushReplacement(
       context,
@@ -129,7 +135,6 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   _selectLanguage(context, 'or');
                 },
               ),
-              // Bengali (বাংলা) and "Choose your language" buttons are removed.
             ],
           ),
         ),

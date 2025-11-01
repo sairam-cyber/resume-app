@@ -11,10 +11,21 @@ class ResumeService {
     return prefs.getString('token');
   }
 
+  // Get user's preferred language
+  Future<String> _getUserLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    // --- THIS IS THE FIX ---
+    // It now reads 'languageCode' to match your LanguageProvider
+    return prefs.getString('languageCode') ?? 'en';
+    // --- END OF FIX ---
+  }
+
   // Starts the conversation with the backend
   Future<Map<String, dynamic>> startResume(String templateName) async {
     final token = await _getToken();
     if (token == null) return {'success': false, 'message': 'No token found'};
+
+    final language = await _getUserLanguage();
 
     final response = await http.post(
       Uri.parse('$_baseUrl/api/resume/start'),
@@ -24,6 +35,7 @@ class ResumeService {
       },
       body: json.encode({
         'template': templateName, // e.g., "Modern"
+        'language': language, // Send user's language preference
       }),
     );
 
@@ -90,6 +102,34 @@ class ResumeService {
       return {'success': true, 'resume': body['resume']};
     } else {
       return {'success': false, 'message': body['msg'] ?? 'Error'};
+    }
+  }
+
+  // --- ADD THIS FUNCTION ---
+  Future<Map<String, dynamic>> parseVoiceResume(String transcribedText) async {
+    final token = await _getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    final language = await _getUserLanguage();
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/resume/parse-voice'),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': token,
+      },
+      body: json.encode({
+        'transcribedText': transcribedText,
+        'language': language,
+      }),
+    );
+
+    final body = json.decode(response.body);
+    if (response.statusCode == 200) {
+      // The body is the JSON object itself
+      return {'success': true, 'data': body};
+    } else {
+      return {'success': false, 'message': body['msg'] ?? 'Error parsing text'};
     }
   }
 }

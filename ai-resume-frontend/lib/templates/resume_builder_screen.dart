@@ -2,21 +2,19 @@
 
 import 'package:flutter/material.dart';
 import 'package:rezume_app/models/resume_template_model.dart';
-import 'package:rezume_app/services/resume_service.dart'; // <-- ADD THIS
-import 'package:url_launcher/url_launcher.dart'; // <-- ADD THIS
+import 'package:rezume_app/services/resume_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-// PDF generation imports are no longer needed here
-// import 'package:flutter/services.dart' show rootBundle;
-// import 'package:pdf/pdf.dart';
-// import 'package:pdf/widgets.dart' as pw;
-// import 'package:printing/printing.dart';
-
-// Dummy data is no longer needed here
+// --- ADD THESE IMPORTS ---
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:rezume_app/services/assemblyai_service.dart';
+// --- END OF IMPORTS ---
 
 class ChatMessage {
   final String text;
   final bool isUser;
-
   ChatMessage({required this.text, required this.isUser});
 }
 
@@ -35,18 +33,22 @@ class ResumeBuilderScreen extends StatefulWidget {
 }
 
 class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
-  // --- REMOVED: The hardcoded _questionFlow is gone ---
-
   final List<ChatMessage> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final FocusNode _chatFocusNode = FocusNode();
 
-  // --- NEW: State for backend communication ---
+  // --- State for backend communication ---
   final ResumeService _resumeService = ResumeService();
-  String? _resumeId; // To store the ID of the resume-in-progress
-  bool _isLoading = true; // For chat messages
-  bool _isGeneratingPdf = false; // For the final button
+  String? _resumeId;
+  bool _isLoading = true;
+  bool _isGeneratingPdf = false;
   bool _isConversationComplete = false;
+
+  // --- ADD STATE FOR VOICE RECORDING ---
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AssemblyAiService _assemblyAiService = AssemblyAiService();
+  bool _isRecording = false;
+  // --- END OF VOICE STATE ---
 
   @override
   void initState() {
@@ -58,45 +60,34 @@ class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
   void dispose() {
     _textController.dispose();
     _chatFocusNode.dispose();
+    _audioRecorder.dispose(); // <-- Don't forget to dispose
     super.dispose();
   }
 
-  // --- NEW: Starts the chat by calling the backend ---
+  // --- Starts the chat (UNCHANGED) ---
   Future<void> _startConversation() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() { _isLoading = true; });
     final result = await _resumeService.startResume(widget.templateName);
-
     if (mounted) {
       if (result['success']) {
         setState(() {
           _resumeId = result['resumeId'];
-          _messages.add(ChatMessage(
-            text: result['question']!,
-            isUser: false,
-          ));
+          _messages.add(ChatMessage(text: result['question']!, isUser: false));
           _isLoading = false;
         });
         _chatFocusNode.requestFocus();
       } else {
-        // Handle error
         setState(() {
-          _messages.add(ChatMessage(
-            text: 'Error starting chat: ${result['message']}',
-            isUser: false,
-          ));
+          _messages.add(ChatMessage(text: 'Error starting chat: ${result['message']}', isUser: false));
           _isLoading = false;
         });
       }
     }
   }
 
-  // --- MODIFIED: Sends answer to the backend ---
+  // --- Sends answer to backend (UNCHANGED) ---
   void _sendMessage() async {
     if (_isConversationComplete || _isLoading || _resumeId == null) return;
-
     String userInput = _textController.text.trim();
     if (userInput.isEmpty) return;
 
@@ -111,10 +102,7 @@ class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
     if (mounted) {
       if (result['success']) {
         setState(() {
-          _messages.add(ChatMessage(
-            text: result['question']!,
-            isUser: false,
-          ));
+          _messages.add(ChatMessage(text: result['question']!, isUser: false));
           _isConversationComplete = result['isComplete'];
           _isLoading = false;
         });
@@ -122,55 +110,93 @@ class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
           _chatFocusNode.requestFocus();
         }
       } else {
-        // Handle error
         setState(() {
-          _messages.add(ChatMessage(
-            text: 'Error: ${result['message']}',
-            isUser: false,
-          ));
+          _messages.add(ChatMessage(text: 'Error: ${result['message']}', isUser: false));
           _isLoading = false;
         });
       }
     }
   }
-
-  // --- MODIFIED: Calls backend to generate PDF and opens the URL ---
+  
+  // --- Calls backend to generate PDF (UNCHANGED) ---
   Future<void> _generatePdf() async {
     if (_resumeId == null) return;
-
-    setState(() {
-      _isGeneratingPdf = true;
-    });
-
+    setState(() { _isGeneratingPdf = true; });
     final result = await _resumeService.generatePdf(_resumeId!);
-
     if (mounted) {
-      setState(() {
-        _isGeneratingPdf = false;
-      });
-
+      setState(() { _isGeneratingPdf = false; });
       if (result['success']) {
         final String? pdfUrl = result['resume']?['pdfUrl'];
         if (pdfUrl != null) {
           final Uri url = Uri.parse(pdfUrl);
           if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not open PDF: $pdfUrl')),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open PDF: $pdfUrl')));
           }
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Error generating PDF'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Error generating PDF'), backgroundColor: Colors.red));
       }
     }
   }
 
-  // --- REMOVED: _generateFullPdf and _buildPdfSection ---
+  // --- *** ADD VOICE FUNCTIONS *** ---
+
+  Future<void> _startListening() async {
+    var status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission is required.')));
+      return;
+    }
+
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final audioPath = '${directory.path}/resume_answer.wav';
+
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.pcm16bits), // Use pcm16bits
+        path: audioPath,
+      );
+
+      setState(() { _isRecording = true; });
+    } catch (e) {
+      print('Error starting recording: $e');
+    }
+  }
+
+  Future<void> _stopAndTranscribe() async {
+    try {
+      final path = await _audioRecorder.stop();
+      if (path == null) return;
+      
+      setState(() {
+        _isRecording = false;
+        _isLoading = true; // Show loading spinner in text field
+      });
+
+      // Transcribe the audio
+      final String transcribedText = await _assemblyAiService.transcribe(path);
+      
+      // --- THIS IS THE KEY ---
+      // Put the transcribed text into the chat box
+      _textController.text = transcribedText;
+      
+      if(mounted) {
+        setState(() { _isLoading = false; });
+        _chatFocusNode.requestFocus(); // Focus the text field
+      }
+
+    } catch (e) {
+      print('Error transcribing audio: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _textController.text = ''; // Clear text on error
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+  // --- *** END OF VOICE FUNCTIONS *** ---
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +238,7 @@ class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
           : ElevatedButton.icon(
               icon: const Icon(Icons.description_rounded, size: 20),
               label: const Text('Generate PDF Resume'),
-              onPressed: _generatePdf, // <-- Calls the new backend function
+              onPressed: _generatePdf,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF007BFF),
                 foregroundColor: Colors.white,
@@ -229,10 +255,10 @@ class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
     );
   }
 
+  // --- *** MODIFIED CHAT INPUT *** ---
   Widget _buildChatInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      // ... (rest of the styling is unchanged)
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -250,37 +276,50 @@ class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
             child: TextField(
               controller: _textController,
               focusNode: _chatFocusNode,
-              enabled: !_isLoading, // <-- Disable when loading
+              enabled: !_isLoading,
               decoration: InputDecoration(
-                hintText: _isLoading ? "Thinking..." : "Type your answer...",
+                hintText: _isLoading ? "Thinking..." : (_isRecording ? "Listening..." : "Type or hold mic to talk..."),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(25.0),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: _isRecording ? Colors.blue.shade50 : Colors.grey.shade100,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
               ),
               onSubmitted: (text) => _sendMessage(),
             ),
           ),
           const SizedBox(width: 8.0),
-          _isLoading
-              ? const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 3)),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.send, color: Color(0xFF007BFF)),
-                  onPressed: _sendMessage,
-                ),
+          
+          // --- Voice Button ---
+          GestureDetector(
+            onLongPress: _startListening, // Hold to record
+            onLongPressUp: _stopAndTranscribe, // Release to transcribe
+            child: CircleAvatar(
+              radius: 22,
+              backgroundColor: _isRecording ? Colors.red : const Color(0xFF007BFF),
+              child: _isLoading 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Icon(
+                    _isRecording ? Icons.stop : Icons.mic, 
+                    color: Colors.white
+                  ),
+            ),
+          ),
+          
+          // --- Send Button ---
+          const SizedBox(width: 8.0),
+          IconButton(
+            icon: const Icon(Icons.send, color: Color(0xFF007BFF)),
+            onPressed: _isLoading ? null : _sendMessage,
+          ),
         ],
       ),
     );
   }
+  // --- *** END OF MODIFIED CHAT INPUT *** ---
+
 
   // Chat bubble UI (Unchanged)
   Widget _buildChatMessage({required bool isUser, required String message}) {
@@ -293,16 +332,14 @@ class _ResumeBuilderScreenState extends State<ResumeBuilderScreen> {
         decoration: BoxDecoration(
           color: isUser ? const Color(0xFF007BFF) : Colors.white,
           borderRadius: BorderRadius.circular(20.0),
-          boxShadow: isUser
-              ? []
-              : [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.15),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  )
-                ],
+          boxShadow: isUser ? [] : [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.15),
+              spreadRadius: 1,
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            )
+          ],
         ),
         child: Text(
           message,

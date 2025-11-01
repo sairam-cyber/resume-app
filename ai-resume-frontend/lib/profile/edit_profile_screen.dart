@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:rezume_app/models/user_model.dart';
 import 'package:rezume_app/services/user_service.dart';
+import 'package:rezume_app/app/localization/app_localizations.dart';
+import 'package:rezume_app/widgets/language_selector_widget.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -84,15 +86,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: Text(loc?.translate('edit_profile_title') ?? 'Edit Profile'),
         actions: [
+          const LanguageSelectorWidget(),
+          const SizedBox(width: 8),
           _isLoading 
             ? const Padding(padding: EdgeInsets.all(16.0), child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white)))
             : IconButton(
                 icon: const Icon(Icons.check_rounded),
-                tooltip: 'Save',
+                tooltip: loc?.translate('common_save') ?? 'Save',
                 onPressed: _saveProfile,
               )
         ],

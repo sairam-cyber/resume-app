@@ -8,8 +8,18 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:rezume_app/app/localization/app_localizations.dart';
 
-// Dummy data to pre-fill the form (from resume_builder_screen.dart)
+// --- NEW IMPORTS ---
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:rezume_app/services/assemblyai_service.dart';
+import 'package:rezume_app/services/resume_service.dart';
+// --- END NEW IMPORTS ---
+
+
+// Dummy data to pre-fill the form (This is unchanged)
 final Map<String, dynamic> _fullDriverResumeData = {
   'fullName': 'Rajesh Kumar Singh',
   'jobTitle': 'Professional Driver',
@@ -65,12 +75,14 @@ final Map<String, dynamic> _fullDriverResumeData = {
   'languages': ['English', 'Hindi', 'Marathi'],
 };
 
+
 // Enum to manage the state of the screen
 enum VoiceBuildState {
   idle,
   listening,
   processing,
   editing,
+  error, // Added error state
 }
 
 class VoiceResumeBuilderScreen extends StatefulWidget {
@@ -84,14 +96,15 @@ class VoiceResumeBuilderScreen extends StatefulWidget {
 class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
     with TickerProviderStateMixin {
   VoiceBuildState _currentState = VoiceBuildState.idle;
-  int _processingStep = 0;
-  final List<String> _processingSteps = [
-    'Extracting features...',
-    'Converting into JSON...',
-    'Building a resume...',
-  ];
+  String _errorMessage = ''; // For showing errors
 
-  // Controllers for the editable form
+  // --- NEW: Audio recording state ---
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AssemblyAiService _assemblyAiService = AssemblyAiService();
+  final ResumeService _resumeService = ResumeService();
+  String? _audioPath;
+
+  // Controllers for the editable form (pre-filled with dummy data)
   final _nameController =
       TextEditingController(text: _fullDriverResumeData['fullName']);
   final _jobTitleController =
@@ -129,6 +142,7 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    _audioRecorder.dispose(); // Dispose recorder
     _nameController.dispose();
     _jobTitleController.dispose();
     _phoneController.dispose();
@@ -139,40 +153,108 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
     super.dispose();
   }
 
-  void _startListening() {
-    setState(() {
-      _currentState = VoiceBuildState.listening;
-    });
+  Future<void> _startListening() async {
+    // Request microphone permission
+    var status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      setState(() {
+        _currentState = VoiceBuildState.error;
+        _errorMessage = 'Microphone permission is required to record audio.';
+      });
+      return;
+    }
 
-    // Simulate listening for 3 seconds
-    Timer(const Duration(seconds: 3), () {
-      _startProcessing();
-    });
+    try {
+      // Get a temporary path to save the audio
+      final directory = await getApplicationDocumentsDirectory();
+      _audioPath = '${directory.path}/resume_audio.wav';
+
+      // Start recording
+      // --- *** THIS IS THE FIX YOU PROVIDED *** ---
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.wav), // <-- CORRECTED
+        path: _audioPath!,
+      );
+      // --- *** END OF FIX *** ---
+
+      setState(() {
+        _currentState = VoiceBuildState.listening;
+      });
+    } catch (e) {
+      print('Error starting recording: $e');
+      setState(() {
+        _currentState = VoiceBuildState.error;
+        _errorMessage = 'Failed to start recording.';
+      });
+    }
   }
 
-  void _startProcessing() {
-    setState(() {
-      _currentState = VoiceBuildState.processing;
-      _processingStep = 0;
-    });
+  // --- This function is UNCHANGED from the previous turn ---
+  Future<void> _stopAndTranscribe() async {
+    try {
+      // Stop the recording
+      final path = await _audioRecorder.stop();
+      if (path == null) {
+        throw Exception('Audio path not found after stopping.');
+      }
+      print('Audio saved to: $path');
 
-    // Simulate the multi-step process
-    Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (_processingStep < _processingSteps.length - 1) {
+      setState(() {
+        _currentState = VoiceBuildState.processing;
+      });
+
+      // 1. Transcribe the audio
+      final String transcribedText = await _assemblyAiService.transcribe(path);
+      print('Transcribed Text: $transcribedText');
+
+      // 2. Parse the text with AI
+      final result = await _resumeService.parseVoiceResume(transcribedText);
+
+      if (mounted) {
+        if (result['success']) {
+          final data = result['data'];
+          setState(() {
+            // Populate all controllers from the parsed JSON
+            _nameController.text = data['fullName'] ?? '';
+            _jobTitleController.text = data['jobTitle'] ?? '';
+            _phoneController.text = data['phone'] ?? '';
+            _emailController.text = data['email'] ?? '';
+            _locationController.text = data['location'] ?? '';
+            _summaryController.text = data['summary'] ?? '';
+            _skillsController.text = data['skills'] ?? '';
+
+            _currentState = VoiceBuildState.editing;
+          });
+        } else {
+          // If parsing fails, just put the raw text in summary as a fallback
+          setState(() {
+            _summaryController.text = transcribedText;
+            _currentState = VoiceBuildState.editing;
+          });
+          // Show a non-blocking snackbar error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'AI parsing failed. Please edit manually. Error: ${result['message']}'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error stopping or transcribing: $e');
+      if (mounted) {
         setState(() {
-          _processingStep++;
-        });
-      } else {
-        timer.cancel();
-        // Finished processing, move to editing
-        setState(() {
-          _currentState = VoiceBuildState.editing;
+          _currentState = VoiceBuildState.error;
+          _errorMessage = 'Failed to process audio: $e';
         });
       }
-    });
+    }
   }
+  // --- END OF UNCHANGED FUNCTION ---
 
-  // --- PDF Generation Logic (copied from resume_builder_screen.dart) ---
+
+  // --- PDF Generation Logic (This is unchanged) ---
   Future<void> _generateFullPdf() async {
     final pdf = pw.Document();
     pw.ThemeData myTheme;
@@ -358,10 +440,12 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0F8FF),
       appBar: AppBar(
-        title: const Text('Build with Voice'),
+        title: Text(loc?.translate('voice_builder_title') ?? 'Build with Voice'),
         backgroundColor: Colors.white,
         elevation: 1,
       ),
@@ -382,22 +466,25 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
         return _buildProcessing();
       case VoiceBuildState.editing:
         return _buildEditing();
+      case VoiceBuildState.error:
+        return _buildError();
     }
   }
 
   Widget _buildIdle() {
+    final loc = AppLocalizations.of(context);
     return Center(
       key: const ValueKey('idle'),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
-            'Tap the mic to start',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          Text(
+            loc?.translate('voice_builder_tap_mic') ?? 'Tap the mic to start',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
           GestureDetector(
-            onTap: _startListening,
+            onTap: _startListening, // <-- Start recording
             child: const CircleAvatar(
               radius: 60,
               backgroundColor: Color(0xFF007BFF),
@@ -410,19 +497,21 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
   }
 
   Widget _buildListening() {
+    final loc = AppLocalizations.of(context);
     return Center(
       key: const ValueKey('listening'),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
-            'Listening...',
-            style: TextStyle(
+          Text(
+            loc?.translate('voice_builder_listening') ?? 'Listening...',
+            style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Colors.black54),
           ),
           const SizedBox(height: 20),
+          // Pulsing mic icon
           ScaleTransition(
             scale: _scaleAnimation,
             child: const CircleAvatar(
@@ -431,12 +520,32 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
               child: Icon(Icons.mic, color: Colors.white, size: 60),
             ),
           ),
+          const SizedBox(height: 30),
+          // --- NEW: Stop Button ---
+          ElevatedButton.icon(
+            icon: const Icon(Icons.stop_circle_outlined),
+            label: Text(loc?.translate('voice_builder_stop') ?? 'Stop'),
+            onPressed: _stopAndTranscribe, // <-- Stop and transcribe
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            ),
+          )
         ],
       ),
     );
   }
 
   Widget _buildProcessing() {
+    final loc = AppLocalizations.of(context);
+    // Get the localized steps for the progress bar
+    final List<String> processingSteps = [
+      loc?.translate('voice_builder_step1') ?? 'Uploading audio...',
+      loc?.translate('voice_builder_step2') ?? 'Transcribing text...',
+      loc?.translate('voice_builder_step3') ?? 'Populating resume...',
+    ];
+
     return Center(
       key: const ValueKey('processing'),
       child: Padding(
@@ -447,14 +556,17 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
             const CircularProgressIndicator(),
             const SizedBox(height: 24),
             Text(
-              _processingSteps[_processingStep],
+              loc?.translate('voice_builder_processing') ??
+                  'Processing your audio...',
+              textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
-            // Multi-step progress bar
+            // You can use a simple text or the progress bar from your old code
             ProgressIndicatorBar(
-              steps: _processingSteps,
-              currentStep: _processingStep,
+              steps: processingSteps,
+              // We don't have multi-step polling here, so just show first step
+              currentStep: 0,
             ),
           ],
         ),
@@ -462,7 +574,42 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
     );
   }
 
+  Widget _buildError() {
+    final loc = AppLocalizations.of(context);
+    return Center(
+      key: const ValueKey('error'),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 60),
+            const SizedBox(height: 20),
+            Text(
+              loc?.translate('voice_builder_error') ?? 'An Error Occurred',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _errorMessage, // Display the specific error
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () =>
+                  setState(() => _currentState = VoiceBuildState.idle),
+              child: Text(loc?.translate('voice_builder_try_again') ?? 'Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   Widget _buildEditing() {
+    final loc = AppLocalizations.of(context);
     return SingleChildScrollView(
       key: const ValueKey('editing'),
       padding: const EdgeInsets.all(16.0),
@@ -470,39 +617,50 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Your resume is ready. Please review and edit.',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              loc?.translate('voice_builder_review') ??
+                  'Your resume is ready. Please review and edit.',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             TextFormField(
               controller: _nameController,
-              decoration: _buildInputDecoration('Full Name', Icons.person),
+              decoration: _buildInputDecoration(
+                  loc?.translate('voice_builder_full_name') ?? 'Full Name',
+                  Icons.person),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _jobTitleController,
-              decoration: _buildInputDecoration('Job Title', Icons.work),
+              decoration: _buildInputDecoration(
+                  loc?.translate('voice_builder_job_title') ?? 'Job Title',
+                  Icons.work),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
-              decoration: _buildInputDecoration('Phone', Icons.phone),
+              decoration: _buildInputDecoration(
+                  loc?.translate('voice_builder_phone') ?? 'Phone', Icons.phone),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _emailController,
-              decoration: _buildInputDecoration('Email', Icons.email),
+              decoration: _buildInputDecoration(
+                  loc?.translate('voice_builder_email') ?? 'Email', Icons.email),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _locationController,
-              decoration: _buildInputDecoration('Location', Icons.location_on),
+              decoration: _buildInputDecoration(
+                  loc?.translate('voice_builder_location') ?? 'Location',
+                  Icons.location_on),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _summaryController,
-              decoration: _buildInputDecoration('Summary', Icons.article,
+              decoration: _buildInputDecoration(
+                  loc?.translate('voice_builder_summary') ?? 'Summary',
+                  Icons.article,
                   alignLabel: true),
               maxLines: 5,
             ),
@@ -510,15 +668,19 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
             TextFormField(
               controller: _skillsController,
               decoration: _buildInputDecoration(
-                  'Skills (comma-separated)', Icons.star,
+                  loc?.translate('voice_builder_skills') ??
+                      'Skills (comma-separated)',
+                  Icons.star,
                   alignLabel: true),
               maxLines: 3,
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-              label: const Text('Generate Updated PDF',
-                  style: TextStyle(color: Colors.white)),
+              label: Text(
+                  loc?.translate('voice_builder_generate_pdf') ??
+                      'Generate Updated PDF',
+                  style: const TextStyle(color: Colors.white)),
               onPressed: _generateFullPdf,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF007BFF),
@@ -551,7 +713,7 @@ class _VoiceResumeBuilderScreenState extends State<VoiceResumeBuilderScreen>
   }
 }
 
-// A helper widget for the multi-step progress bar
+// A helper widget for the multi-step progress bar (Unchanged)
 class ProgressIndicatorBar extends StatelessWidget {
   final List<String> steps;
   final int currentStep;

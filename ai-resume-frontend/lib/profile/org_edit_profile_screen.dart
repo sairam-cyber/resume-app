@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:rezume_app/services/org_service.dart'; // <-- ADDED
 import 'package:rezume_app/models/org_model.dart'; // <-- ADDED
+import 'package:rezume_app/app/localization/app_localizations.dart';
+import 'package:rezume_app/widgets/language_selector_widget.dart';
 
 class OrgEditProfileScreen extends StatefulWidget {
   final String orgName; // Initial data from profile screen
@@ -77,17 +79,21 @@ class _OrgEditProfileScreenState extends State<OrgEditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Organization Profile'),
+        title: Text(loc?.translate('edit_profile_title') ?? 'Edit Organization Profile'),
         backgroundColor: widget.themeColor,
         elevation: 0,
         actions: [
+          const LanguageSelectorWidget(),
+          const SizedBox(width: 8),
           _isLoading
               ? const Padding(padding: EdgeInsets.all(16.0), child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white)))
               : IconButton(
                   icon: const Icon(Icons.check_rounded),
-                  tooltip: 'Save',
+                  tooltip: loc?.translate('common_save') ?? 'Save',
                   onPressed: _saveProfile,
                 )
         ],

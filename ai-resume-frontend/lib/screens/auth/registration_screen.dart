@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:rezume_app/screens/onboarding/experience_level_screen.dart';
 import 'package:rezume_app/services/auth_service.dart'; // <-- IMPORT
+import 'package:rezume_app/app/localization/app_localizations.dart';
+import 'package:rezume_app/widgets/language_selector_widget.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -159,16 +161,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // --- THIS IS THE FIX ---
-    // The stray comments and code snippets have been removed from here.
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: const [
+          LanguageSelectorWidget(),
+          SizedBox(width: 8),
+        ],
       ),
       body: Stack(
         children: [
@@ -184,20 +189,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     bottomLeft: Radius.circular(60),
                   ),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 32.0, top: 90.0),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 32.0, top: 90.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.article_rounded,
                         color: Colors.white,
                         size: 50,
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       Text(
-                        'User Details',
-                        style: TextStyle(
+                        loc?.translate('register_title') ?? 'User Details',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 36,
                           fontWeight: FontWeight.bold,

@@ -12,6 +12,7 @@ import 'package:rezume_app/profile/saved_resumes_screen.dart';
 import 'package:rezume_app/profile/org_edit_profile_screen.dart';
 // --- MODIFICATION: Removed PostedJobsScreen import ---
 import 'package:rezume_app/profile/user_job_search_screen.dart';
+import 'package:rezume_app/app/localization/app_localizations.dart';
 
 class ProfileScreen extends StatefulWidget {
   // ... (class definition is unchanged) ...
@@ -116,16 +117,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // --- UNCHANGED: Dialog to show for guests ---
   void _showLoginRequiredDialog() {
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Registration Required'),
-        content: const Text(
-            'This feature is available for registered users. Please log in or create an account to continue.'),
+        title: Text(loc?.translate('profile_registration_required') ?? 'Registration Required'),
+        content: Text(
+            loc?.translate('profile_registration_message') ?? 'This feature is available for registered users. Please log in or create an account to continue.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(loc?.translate('profile_cancel') ?? 'Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -134,7 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 (Route<dynamic> route) => false,
               );
             },
-            child: const Text('Login / Register'),
+            child: Text(loc?.translate('profile_login_register') ?? 'Login / Register'),
           ),
         ],
       ),
@@ -143,12 +145,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
         // ... (appBar is unchanged) ...
         title: Text(
-            widget.role == 'User' ? 'Your Profile' : 'Organization Profile'),
+            widget.role == 'User' 
+                ? (loc?.translate('profile_title_user') ?? 'Your Profile') 
+                : (loc?.translate('profile_title_org') ?? 'Organization Profile')),
         backgroundColor: _currentPrimaryColor,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -205,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // --- Edit Profile (unchanged) ---
                       _buildProfileOption(
                         icon: Icons.person_outline_rounded,
-                        title: 'Edit Profile',
+                        title: loc?.translate('profile_edit') ?? 'Edit Profile',
                         onTap: () async { // <-- Make async
                           // ... (unchanged logic)
                           if (widget.role == 'User' && _isGuest) {
@@ -246,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // --- User options (unchanged) ---
                         _buildProfileOption(
                           icon: Icons.article_outlined,
-                          title: 'My Saved Resumes',
+                          title: loc?.translate('profile_saved_resumes') ?? 'My Saved Resumes',
                           onTap: () {
                             if (_isGuest) {
                               _showLoginRequiredDialog();
@@ -264,7 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         _buildProfileOption(
                           icon: Icons.work_outline_rounded,
-                          title: 'Apply for Jobs',
+                          title: loc?.translate('profile_apply_jobs') ?? 'Apply for Jobs',
                           onTap: () {
                             if (_isGuest) {
                               _showLoginRequiredDialog();
@@ -287,7 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildProfileOption(
                         // ... (Help Center button unchanged) ...
                         icon: Icons.help_outline_rounded,
-                        title: 'Help Center',
+                        title: loc?.translate('profile_help_center') ?? 'Help Center',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -301,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildProfileOption(
                         // ... (Logout button unchanged) ...
                         icon: Icons.logout_rounded,
-                        title: 'Logout',
+                        title: loc?.translate('profile_logout') ?? 'Logout',
                         onTap: () {
                           // TODO: Clear token from SharedPreferences
                           Navigator.of(context).pushAndRemoveUntil(

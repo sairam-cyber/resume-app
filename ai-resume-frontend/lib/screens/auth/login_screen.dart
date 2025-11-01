@@ -6,6 +6,8 @@ import 'package:rezume_app/screens/auth/registration_screen.dart';
 import 'package:rezume_app/screens/auth/org_registration_screen.dart';
 import 'package:rezume_app/screens/auth/forgot_password_screen.dart';
 import 'package:rezume_app/services/auth_service.dart'; // <-- IMPORT
+import 'package:rezume_app/app/localization/app_localizations.dart';
+import 'package:rezume_app/widgets/language_selector_widget.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool registrationSuccessful;
@@ -310,8 +312,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    // --- THIS IS THE FIX ---
-    // The stray comments and code snippets have been removed from here.
+    final loc = AppLocalizations.of(context);
+    
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -355,19 +357,29 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                         const SizedBox(height: 24),
-                        const Text(
-                          'Welcome\nBack!',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            height: 1.2,
-                            letterSpacing: -1,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                loc?.translate('login_title') ?? 'Welcome\nBack!',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.2,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const LanguageSelectorWidget(),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Sign in to continue your journey',
+                          loc?.translate('login_subtitle') ?? 'Sign in to continue your journey',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.9),
                             fontSize: 16,
@@ -386,7 +398,7 @@ class _LoginScreenState extends State<LoginScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Choose your role',
+                          loc?.translate('login_choose_role') ?? 'Choose your role',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.9),
                             fontSize: 16,
@@ -398,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen>
                           children: [
                             _buildAnimatedRoleButton(
                               icon: Icons.person_outline_rounded,
-                              label: 'User',
+                              label: loc?.translate('login_user') ?? 'User',
                               isSelected: _selectedRole == 'User',
                               onTap: () =>
                                   setState(() => _selectedRole = 'User'),
@@ -406,7 +418,7 @@ class _LoginScreenState extends State<LoginScreen>
                             const SizedBox(width: 16),
                             _buildAnimatedRoleButton(
                               icon: Icons.business_rounded,
-                              label: 'Organization',
+                              label: loc?.translate('login_organization') ?? 'Organization',
                               isSelected: _selectedRole == 'Organization',
                               onTap: () => setState(
                                   () => _selectedRole = 'Organization'),
@@ -446,7 +458,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 TextFormField(
                                   controller: _phoneController,
                                   decoration: InputDecoration(
-                                    labelText: 'Phone number',
+                                    labelText: loc?.translate('login_phone') ?? 'Phone number',
                                     prefixIcon: Icon(Icons.phone_outlined),
                                     border: OutlineInputBorder(
                                         borderRadius:
@@ -457,7 +469,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     if (_selectedRole == 'User' &&
                                         (value == null ||
                                             value.trim().length < 10)) {
-                                      return 'Please enter a valid 10-digit number';
+                                      return loc?.translate('login_phone_error') ?? 'Please enter a valid 10-digit number';
                                     }
                                     return null;
                                   },
@@ -471,7 +483,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 TextFormField(
                                   controller: _emailController,
                                   decoration: InputDecoration(
-                                    labelText: "Organization's Email",
+                                    labelText: loc?.translate('login_email') ?? "Organization's Email",
                                     prefixIcon: Icon(Icons.email_outlined),
                                     border: OutlineInputBorder(
                                         borderRadius:
@@ -481,10 +493,10 @@ class _LoginScreenState extends State<LoginScreen>
                                   validator: (value) {
                                     if (_selectedRole == 'Organization') {
                                       if (value == null || value.trim().isEmpty)
-                                        return 'Please enter email';
+                                        return loc?.translate('login_email_required') ?? 'Please enter email';
                                       if (!RegExp(r'\S+@\S+\.\S+')
                                           .hasMatch(value))
-                                        return 'Enter valid email';
+                                        return loc?.translate('login_email_invalid') ?? 'Enter valid email';
                                     }
                                     return null;
                                   },
@@ -497,7 +509,7 @@ class _LoginScreenState extends State<LoginScreen>
                               TextFormField(
                                 controller: _passwordController,
                                 decoration: InputDecoration(
-                                  labelText: 'Password',
+                                  labelText: loc?.translate('login_password') ?? 'Password',
                                   prefixIcon: Icon(Icons.lock_outline_rounded),
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12)),
@@ -506,7 +518,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 validator: (value) {
                                   if (value == null ||
                                       value.trim().length < 6) {
-                                    return 'Password must be at least 6 characters';
+                                    return loc?.translate('login_password_error') ?? 'Password must be at least 6 characters';
                                   }
                                   return null;
                                 },
@@ -526,7 +538,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   ),
                                   child: Text(
-                                    'Forgot password?',
+                                    loc?.translate('login_forgot_password') ?? 'Forgot password?',
                                     style: TextStyle(
                                       color: _currentPrimaryColor,
                                       fontWeight: FontWeight.w600,
@@ -548,7 +560,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: Text(
-                                    'Create Guest Account?',
+                                    loc?.translate('login_guest_account') ?? 'Create Guest Account?',
                                     style: TextStyle(
                                       color: _currentPrimaryColor,
                                       fontWeight: FontWeight.bold,
@@ -595,9 +607,9 @@ class _LoginScreenState extends State<LoginScreen>
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
                                                   Colors.white))
-                                      : const Text(
-                                          'LOGIN',
-                                          style: TextStyle(
+                                      : Text(
+                                          (loc?.translate('login_button') ?? 'LOGIN').toUpperCase(),
+                                          style: const TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
@@ -611,7 +623,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    "Don't have an account? ",
+                                    loc?.translate('login_no_account') ?? "Don't have an account? ",
                                     style: TextStyle(
                                       color: Colors.grey.shade600,
                                       fontSize: 15,
@@ -644,7 +656,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           MaterialTapTargetSize.shrinkWrap,
                                     ),
                                     child: Text(
-                                      'Register',
+                                      loc?.translate('login_register') ?? 'Register',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: _currentPrimaryColor,

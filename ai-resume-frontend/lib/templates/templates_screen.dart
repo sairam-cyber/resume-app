@@ -5,6 +5,7 @@ import 'package:rezume_app/models/resume_template_model.dart';
 import 'package:rezume_app/templates/resume_builder_screen.dart';
 // --- ADD THIS IMPORT ---
 import 'package:rezume_app/templates/voice_resume_builder_screen.dart';
+import 'package:rezume_app/app/localization/app_localizations.dart';
 
 class TemplatesScreen extends StatefulWidget {
   const TemplatesScreen({super.key});
@@ -61,10 +62,12 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: const Text("Choose a Template"),
+        title: Text(loc?.translate('templates_title') ?? "Choose a Template"),
         backgroundColor: Colors.white,
         elevation: 1,
       ),
@@ -109,7 +112,7 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
             ),
           );
         },
-        label: const Text('Build with Voice'),
+        label: Text(loc?.translate('templates_build_voice') ?? 'Build with Voice'),
         icon: const Icon(Icons.mic),
         backgroundColor: const Color(0xFF007BFF),
       ),

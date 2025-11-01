@@ -102,29 +102,31 @@ class _MainScreenState extends State<MainScreen> {
     const ProfileScreen(role: 'User'),
   ];
 
-  final List<BottomNavigationBarItem> _userNavItems = [
-    // ... (unchanged)
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.home_outlined),
-      activeIcon: Icon(Icons.home),
-      label: 'Home',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.article_outlined),
-      activeIcon: Icon(Icons.article),
-      label: 'Templates',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.score_outlined),
-      activeIcon: Icon(Icons.score),
-      label: 'ATS Score',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.person_outline),
-      activeIcon: Icon(Icons.person),
-      label: 'Profile',
-    ),
-  ];
+  List<BottomNavigationBarItem> _getUserNavItems(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return [
+      BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home),
+        label: loc?.translate('nav_home') ?? 'Home',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.article_outlined),
+        activeIcon: Icon(Icons.article),
+        label: loc?.translate('nav_templates') ?? 'Templates',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.score_outlined),
+        activeIcon: Icon(Icons.score),
+        label: loc?.translate('nav_ats_score') ?? 'ATS Score',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.person_outline),
+        activeIcon: Icon(Icons.person),
+        label: loc?.translate('nav_profile') ?? 'Profile',
+      ),
+    ];
+  }
 
   // --- ORGANIZATION UI (MODIFIED) ---
   List<Widget> get _organizationPages => [
@@ -136,36 +138,38 @@ class _MainScreenState extends State<MainScreen> {
     const ProfileScreen(role: 'Organization'),
   ];
 
-  final List<BottomNavigationBarItem> _organizationNavItems = [
-    // ... (unchanged)
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.home_outlined),
-      activeIcon: Icon(Icons.home),
-      label: 'Home',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.subscriptions_outlined),
-      activeIcon: Icon(Icons.subscriptions),
-      label: 'Subscription',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.work_outline_rounded),
-      activeIcon: Icon(Icons.work_rounded),
-      label: 'Job',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.person_outline),
-      activeIcon: Icon(Icons.person),
-      label: 'Profile',
-    ),
-  ];
+  List<BottomNavigationBarItem> _getOrgNavItems(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return [
+      BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home),
+        label: loc?.translate('nav_home') ?? 'Home',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.subscriptions_outlined),
+        activeIcon: Icon(Icons.subscriptions),
+        label: loc?.translate('nav_subscription') ?? 'Subscription',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.work_outline_rounded),
+        activeIcon: Icon(Icons.work_rounded),
+        label: loc?.translate('nav_job') ?? 'Job',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.person_outline),
+        activeIcon: Icon(Icons.person),
+        label: loc?.translate('nav_profile') ?? 'Profile',
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     // ... (rest of build method is unchanged) ...
     final bool isOrg = _isOrganizationMode;
     final List<Widget> currentPages = isOrg ? _organizationPages : _userPages;
-    final List<BottomNavigationBarItem> currentNavItems = isOrg ? _organizationNavItems : _userNavItems;
+    final List<BottomNavigationBarItem> currentNavItems = isOrg ? _getOrgNavItems(context) : _getUserNavItems(context);
 
     return Scaffold(
       body: currentPages[_selectedIndex],

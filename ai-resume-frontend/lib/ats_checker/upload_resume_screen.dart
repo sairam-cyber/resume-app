@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:rezume_app/ats_checker/ats_results_screen.dart'; // Corrected path
 import 'package:rezume_app/services/ats_service.dart'; // <-- ADDED THIS
+import 'package:rezume_app/app/localization/app_localizations.dart';
 
 class UploadResumeScreen extends StatefulWidget {
   const UploadResumeScreen({super.key});
@@ -73,10 +74,12 @@ class _UploadResumeScreenState extends State<UploadResumeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: const Text("Check ATS Score"),
+        title: Text(loc?.translate('ats_title') ?? "Check ATS Score"),
         backgroundColor: Colors.white,
         elevation: 1,
       ),
@@ -89,13 +92,13 @@ class _UploadResumeScreenState extends State<UploadResumeScreen> {
               const Icon(Icons.cloud_upload_outlined,
                   size: 100, color: Colors.blueAccent),
               const SizedBox(height: 20),
-              const Text(
-                "Upload Your Resume",
+              Text(
+                loc?.translate('ats_upload_title') ?? "Upload Your Resume",
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text(
-                "Get an instant analysis of how well your resume scores with Applicant Tracking Systems.",
+              Text(
+                loc?.translate('ats_upload_subtitle') ?? "Get an instant analysis of how well your resume scores with Applicant Tracking Systems.",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.black54),
               ),
@@ -103,7 +106,7 @@ class _UploadResumeScreenState extends State<UploadResumeScreen> {
               // File upload button
               OutlinedButton.icon(
                 icon: const Icon(Icons.attach_file),
-                label: Text(_fileName ?? "Choose File (.pdf)"), // <-- Updated text
+                label: Text(_fileName ?? (loc?.translate('ats_choose_file') ?? "Choose File (.pdf)")), // <-- Updated text
                 style: OutlinedButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
@@ -124,7 +127,7 @@ class _UploadResumeScreenState extends State<UploadResumeScreen> {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       onPressed: _filePath != null ? _checkAtsScore : null, // <-- Use _filePath
-                      child: const Text("Check My Score",
+                      child: Text(loc?.translate('ats_check_score') ?? "Check My Score",
                           style: TextStyle(color: Colors.white)),
                     ),
             ],

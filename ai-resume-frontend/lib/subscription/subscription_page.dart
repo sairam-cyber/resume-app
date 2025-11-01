@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'payment_page.dart';
+import 'package:rezume_app/app/localization/app_localizations.dart';
 
 // A simple data model for our subscription plans
 class SubscriptionPlan {
@@ -75,12 +76,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     // --- CHANGED: Get the currently selected color ---
     final Color selectedColor = planColors[_selectedIndex];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Choose a Plan'),
+        title: Text(loc?.translate('subscription_title') ?? 'Choose a Plan'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -131,7 +133,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 },
                 // --- END OF MODIFICATION ---
                 child: Text(
-                  'Get Started with ${plans[_selectedIndex].title}',
+                  '${loc?.translate('subscription_get_started') ?? 'Get Started with'} ${plans[_selectedIndex].title}',
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.bold),
                 ),
